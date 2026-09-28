@@ -4,6 +4,7 @@ import pytest
 from grounding.verifier import GroundingVerifier
 from retrieval.types import EvidenceChunk
 from controller.llm_factory import get_llm_client
+from controller.llm_wrapper import ContextBudgetExceeded
 
 @pytest.fixture
 def verifier():
@@ -175,6 +176,7 @@ def test_client_exception_never_defaults_to_supported():
     assert result.all_verified is False
     assert len(result.unsupported_claims) >= 1
     assert result.claims[0].supported is False
+    assert result.claims[0].reason.startswith("entailment client error")
 
 
 def test_wrong_schema_json_never_defaults_to_supported():
@@ -201,4 +203,69 @@ def test_wrong_schema_json_never_defaults_to_supported():
     assert result.all_verified is False
     assert len(result.unsupported_claims) >= 1
     assert result.claims[0].supported is False
+
+
+def test_context_budget_exceeded_propagates_from_verify():
+    """
+    Context budget guardrail: ContextBudgetExceeded must propagate out of verify()
+    and not be converted into a false verdict.
+    """
+    class BudgetExceededLLMClient:
+        def complete(self, system_prompt: str, user_prompt: str, *, max_tokens: int | None = None) -> str:
+            raise ContextBudgetExceeded("context budget exceeded")
+
+    verifier = GroundingVerifier(llm_client=BudgetExceededLLMClient())
+    chunk = EvidenceChunk(
+        chunk_id="DOC_04_§1", doc_id="DOC_04", section="§1",
+        text="Bookings cancelled more than 30 days before the event date receive a full refund of any deposit paid.",
+        retrieval_score=0.9,
+    )
+    answer = "Cancellations made more than 30 days before the event receive a full refund."
+    with pytest.raises(ContextBudgetExceeded):
+        verifier.verify(
+            answer_text=answer,
+            cited_chunks_by_claim={answer: "DOC_04_§1"},
+            evidence=[chunk],
+        )
+
+
+def test_decomposer_stub_runtime_error_sets_decomposition_degraded():
+    """
+    When decomposer fails with an exception, verify() must set decomposition_degraded=True.
+    When decomposer succeeds normally, decomposition_degraded must be False.
+    """
+    class DecomposerFailingLLMClient:
+        def complete(self, system_prompt: str, user_prompt: str, *, max_tokens: int | None = None) -> str:
+            if "splitting an answer into atomic factual claims" in system_prompt.lower():
+                raise RuntimeError("decomposer failed")
+            return '{"supported": true, "reason": "passage supports claim"}'
+
+    verifier = GroundingVerifier(llm_client=DecomposerFailingLLMClient())
+    chunk = EvidenceChunk(
+        chunk_id="DOC_04_§1", doc_id="DOC_04", section="§1",
+        text="Bookings cancelled more than 30 days before the event date receive a full refund of any deposit paid.",
+        retrieval_score=0.9,
+    )
+    answer = "Cancellations made more than 30 days before the event receive a full refund."
+    result = verifier.verify(
+        answer_text=answer,
+        cited_chunks_by_claim={answer: "DOC_04_§1"},
+        evidence=[chunk],
+    )
+    assert result.decomposition_degraded is True
+
+    class NormalStubLLMClient:
+        def complete(self, system_prompt: str, user_prompt: str, *, max_tokens: int | None = None) -> str:
+            if "splitting an answer into atomic factual claims" in system_prompt.lower():
+                return '{"claims": ["Cancellations made more than 30 days before the event receive a full refund."]}'
+            return '{"supported": true, "reason": "passage supports claim"}'
+
+    normal_verifier = GroundingVerifier(llm_client=NormalStubLLMClient())
+    normal_result = normal_verifier.verify(
+        answer_text=answer,
+        cited_chunks_by_claim={answer: "DOC_04_§1"},
+        evidence=[chunk],
+    )
+    assert normal_result.decomposition_degraded is False
+
 

@@ -3,7 +3,11 @@
 One LLM call per answer. Prevents multi-fact compound sentences from slipping
 past entailment checking when only partially supported.
 """
+import logging
+from controller.llm_wrapper import ContextBudgetExceeded
 from decomposer.llm_verifier import _extract_first_json_object
+
+logger = logging.getLogger(__name__)
 
 CLAIM_DECOMPOSER_SYSTEM_PROMPT = """You are splitting an answer into atomic factual claims.
 
@@ -33,6 +37,7 @@ Answer: "Cancellations made more than 30 days before the event receive a full re
 class ClaimDecomposer:
     def __init__(self, llm_client):
         self.llm = llm_client
+        self.last_fallback: bool = False
 
     def decompose(self, answer_text: str) -> list[str]:
         """
@@ -43,6 +48,7 @@ class ClaimDecomposer:
         to parse, fall back to treating the whole answer_text as a single
         claim (never crash, never silently drop the answer).
         """
+        self.last_fallback = False
         stripped = answer_text.strip()
         if not stripped:
             return []
@@ -50,13 +56,24 @@ class ClaimDecomposer:
         user_prompt = f'Answer: "{stripped}"'
         try:
             raw = self.llm.complete(CLAIM_DECOMPOSER_SYSTEM_PROMPT, user_prompt)
+        except ContextBudgetExceeded:
+            raise
+        except Exception as e:
+            logger.warning("Claim decomposition LLM completion failed: %s", e, exc_info=True)
+            self.last_fallback = True
+            return [stripped]
+
+        try:
             data = _extract_first_json_object(raw)
             if data and isinstance(data, dict):
                 claims = data.get("claims")
                 if isinstance(claims, list) and all(isinstance(c, str) for c in claims) and claims:
-                    return [c.strip() for c in claims if c.strip()]
-        except Exception:
-            pass
+                    valid_claims = [c.strip() for c in claims if c.strip()]
+                    if valid_claims:
+                        return valid_claims
+        except Exception as e:
+            logger.warning("Claim decomposition JSON parsing failed: %s", e, exc_info=True)
 
         # Fail-safe: fall back to treating the whole answer_text as a single claim
+        self.last_fallback = True
         return [stripped]

@@ -3,9 +3,14 @@ entailment checking, and contradiction/cherry-pick detection.
 """
 from controller.llm_factory import get_llm_client
 from retrieval.types import EvidenceChunk
-from grounding.types import ClaimVerdict, VerificationResult
+from grounding.types import ClaimEntry, ClaimVerdict, VerificationResult
 from grounding.decomposer import ClaimDecomposer
 from grounding.entailment import EntailmentChecker
+
+CONJUNCTION_PATTERNS = [
+    " and ", " or ", ";", ", and", " as well as ",
+    " but ", " while ", " whereas ",
+]
 
 
 def _lookup_cited_id(claim: str, cited_chunks_by_claim: dict[str, str]) -> str | None:
@@ -23,6 +28,14 @@ def _lookup_cited_id(claim: str, cited_chunks_by_claim: dict[str, str]) -> str |
     return None
 
 
+def _is_cherry_pick(chunk: EvidenceChunk, all_cited_chunk_ids: set[str]) -> bool:
+    if getattr(chunk, "contradiction_flag", False) and getattr(chunk, "contradicts_chunk_id", None):
+        paired_id = chunk.contradicts_chunk_id
+        if paired_id not in all_cited_chunk_ids:
+            return True
+    return False
+
+
 class GroundingVerifier:
     def __init__(self, llm_client=None):
         client = llm_client or get_llm_client()
@@ -35,28 +48,6 @@ class GroundingVerifier:
         cited_chunks_by_claim: dict[str, str],
         evidence: list[EvidenceChunk],
     ) -> VerificationResult:
-        """
-        cited_chunks_by_claim: maps each atomic claim (after decomposition)
-        to the chunk_id the answer-generation step claims supports it.
-        (How the synthesis step produces this mapping is out of scope for
-        this stage — assume it's provided as input for now; NOTE this
-        as an open interface question for whenever the synthesis/answer-
-        generation component is built.)
-
-        Steps:
-        1. claims = self.decomposer.decompose(answer_text)
-        2. For each claim:
-           a. cited_id = cited_chunks_by_claim.get(claim)
-           b. citation_exists = cited_id is not None and cited_id in {c.chunk_id for c in evidence}
-           c. if not citation_exists -> ClaimVerdict(supported=False, reason="fabricated citation")
-           d. else: find the EvidenceChunk for cited_id, run self.entailment.check(claim, chunk.text)
-           e. if that chunk has contradiction_flag=True, check whether ANY claim in claims
-              corresponds to the paired chunk (chunk.contradicts_chunk_id) being cited too.
-              If not, set cherry_pick_violation=True on this claim's verdict.
-        3. Aggregate into VerificationResult: all_verified is True only if
-           every claim has citation_exists=True, supported=True, and
-           cherry_pick_violation=False.
-        """
         claims = self.decomposer.decompose(answer_text)
         if not claims:
             return VerificationResult(
@@ -66,6 +57,7 @@ class GroundingVerifier:
                 fabricated_citations=[],
                 unsupported_claims=[],
                 cherry_picks=[],
+                decomposition_degraded=self.decomposer.last_fallback,
             )
 
         evidence_map = {c.chunk_id: c for c in evidence}
@@ -93,12 +85,7 @@ class GroundingVerifier:
             else:
                 chunk = evidence_map[cited_id]
                 supported, reason = self.entailment.check(claim, chunk.text)
-
-                cherry_pick_violation = False
-                if getattr(chunk, "contradiction_flag", False) and getattr(chunk, "contradicts_chunk_id", None):
-                    paired_id = chunk.contradicts_chunk_id
-                    if paired_id not in all_cited_chunk_ids:
-                        cherry_pick_violation = True
+                cherry_pick_violation = _is_cherry_pick(chunk, all_cited_chunk_ids)
 
                 verdicts.append(
                     ClaimVerdict(
@@ -126,4 +113,95 @@ class GroundingVerifier:
             fabricated_citations=fabricated_citations,
             unsupported_claims=unsupported_claims,
             cherry_picks=cherry_picks,
+            decomposition_degraded=self.decomposer.last_fallback,
         )
+
+    def verify_entries(
+        self,
+        entries: list[ClaimEntry],
+        evidence: list[EvidenceChunk],
+    ) -> VerificationResult:
+        """
+        Verifies a list of ClaimEntry objects against evidence.
+        - Decomposes entries whose claims contain conjunctions; atomic claims skip decomposer.
+        - Checks citation existence and entailment per atomic claim.
+        - Detects cherry-pick violations if a contradiction chunk is cited without its pair.
+        """
+        if not entries:
+            return VerificationResult(
+                answer_text="",
+                claims=[],
+                all_verified=True,
+                fabricated_citations=[],
+                unsupported_claims=[],
+                cherry_picks=[],
+                decomposition_degraded=False,
+            )
+
+        evidence_map = {c.chunk_id: c for c in evidence}
+        atomic_items: list[tuple[str, str]] = []
+        any_degraded = False
+
+        for entry in entries:
+            claim_lower = entry.claim.lower()
+            if any(p in claim_lower for p in CONJUNCTION_PATTERNS):
+                sub_claims = self.decomposer.decompose(entry.claim)
+                if self.decomposer.last_fallback:
+                    any_degraded = True
+                for sc in sub_claims:
+                    atomic_items.append((sc, entry.chunk_id))
+            else:
+                atomic_items.append((entry.claim, entry.chunk_id))
+
+        all_cited_chunk_ids = {cid for _, cid in atomic_items if cid is not None}
+
+        verdicts: list[ClaimVerdict] = []
+        for claim_text, cited_id in atomic_items:
+            citation_exists = cited_id is not None and cited_id in evidence_map
+
+            if not citation_exists:
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim_text,
+                        cited_chunk_id=cited_id,
+                        citation_exists=False,
+                        supported=False,
+                        reason="fabricated citation",
+                        cherry_pick_violation=False,
+                    )
+                )
+            else:
+                chunk = evidence_map[cited_id]
+                supported, reason = self.entailment.check(claim_text, chunk.text)
+                cherry_pick_violation = _is_cherry_pick(chunk, all_cited_chunk_ids)
+
+                verdicts.append(
+                    ClaimVerdict(
+                        claim_text=claim_text,
+                        cited_chunk_id=cited_id,
+                        citation_exists=True,
+                        supported=supported,
+                        reason=reason,
+                        cherry_pick_violation=cherry_pick_violation,
+                    )
+                )
+
+        all_verified = all(
+            v.citation_exists and v.supported and not v.cherry_pick_violation
+            for v in verdicts
+        )
+        fabricated_citations = [v.claim_text for v in verdicts if not v.citation_exists]
+        unsupported_claims = [v.claim_text for v in verdicts if not v.supported]
+        cherry_picks = [v.claim_text for v in verdicts if v.cherry_pick_violation]
+        answer_text = " ".join(e.claim for e in entries)
+
+        return VerificationResult(
+            answer_text=answer_text,
+            claims=verdicts,
+            all_verified=all_verified,
+            fabricated_citations=fabricated_citations,
+            unsupported_claims=unsupported_claims,
+            cherry_picks=cherry_picks,
+            decomposition_degraded=any_degraded,
+        )
+

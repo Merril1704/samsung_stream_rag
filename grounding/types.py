@@ -2,6 +2,12 @@ from dataclasses import dataclass
 
 
 @dataclass
+class ClaimEntry:
+    claim: str
+    chunk_id: str
+
+
+@dataclass
 class ClaimVerdict:
     claim_text: str
     cited_chunk_id: str | None       # what the answer claimed to cite, may be None if no citation given
@@ -19,3 +25,4 @@ class VerificationResult:
     fabricated_citations: list[str]      # claim_texts with citation_exists=False
     unsupported_claims: list[str]        # claim_texts with supported=False
     cherry_picks: list[str]             # claim_texts with cherry_pick_violation=True
+    decomposition_degraded: bool = False

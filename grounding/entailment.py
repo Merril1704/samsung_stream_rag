@@ -3,7 +3,11 @@
 Uses the validated system prompt from scratch/test_entailment_prompt.py,
 including the strict language-strength rules and 3 worked examples.
 """
+import logging
+from controller.llm_wrapper import ContextBudgetExceeded
 from decomposer.llm_verifier import _extract_first_json_object
+
+logger = logging.getLogger(__name__)
 
 ENTAILMENT_SYSTEM_PROMPT = """You are checking whether a specific claim is actually supported by a document passage.
 
@@ -46,13 +50,19 @@ class EntailmentChecker:
         user_prompt = f'Claim: "{claim.strip()}"\nPassage: "{passage.strip()}"'
         try:
             raw = self.llm.complete(ENTAILMENT_SYSTEM_PROMPT, user_prompt)
+        except ContextBudgetExceeded:
+            raise
+        except Exception as e:
+            logger.warning("Entailment LLM completion failed: %s", e, exc_info=True)
+            return False, f"entailment client error: {type(e).__name__}"
+
+        try:
             data = _extract_first_json_object(raw)
             if data and isinstance(data, dict):
                 if "supported" in data:
                     return bool(data["supported"]), str(data.get("reason", ""))
-                # Mock client fallback if needed
                 return False, "missing 'supported' key in response"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Entailment JSON parsing failed: %s", e, exc_info=True)
 
         return False, "entailment check parse failure"
