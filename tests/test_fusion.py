@@ -193,3 +193,30 @@ def test_contradiction_pairs_never_silently_drop_either_side():
     assert "DOC_04_§1" in chunk_ids
     assert "DOC_10_§2" in chunk_ids
     assert len(res.chunks) == 2
+
+
+def test_contradiction_screen_scope_distinction_doc07_doc06(indexed_dev_corpus):
+    """
+    DOC_07 (International) and DOC_06 (Domestic) govern distinct scopes.
+    ContradictionScreen must NOT classify them as contradictory.
+    """
+    import copy
+    lookup = indexed_dev_corpus["chunk_lookup"]
+    c07_1 = copy.deepcopy(lookup["DOC_07_§1"])
+    c06_2 = copy.deepcopy(lookup["DOC_06_§2"])
+    c07_2 = copy.deepcopy(lookup["DOC_07_§2"])
+    c06_1 = copy.deepcopy(lookup["DOC_06_§1"])
+
+    screen = ContradictionScreen(llm_client=get_llm_client())
+
+    # DOC_07 §1 vs DOC_06 §2
+    pairs_1 = screen.screen("summarize the travel reimbursement rule", [c07_1, c06_2])
+    assert len(pairs_1) == 0, f"Expected no contradiction between DOC_07_§1 and DOC_06_§2, got: {pairs_1}"
+    assert c07_1.contradiction_flag is False
+    assert c06_2.contradiction_flag is False
+
+    # DOC_07 §2 vs DOC_06 §1
+    pairs_2 = screen.screen("summarize the travel reimbursement rule", [c07_2, c06_1])
+    assert len(pairs_2) == 0, f"Expected no contradiction between DOC_07_§2 and DOC_06_§1, got: {pairs_2}"
+    assert c07_2.contradiction_flag is False
+    assert c06_1.contradiction_flag is False

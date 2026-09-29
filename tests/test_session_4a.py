@@ -275,6 +275,30 @@ def test_pipeline_contradiction_sets_unresolved_flag(indexed_dev_corpus):
     assert turn.contradiction_unresolved is True
 
 
+def test_entry_evidence_contains_only_cited_chunks(indexed_dev_corpus):
+    """entry.evidence keys must strictly equal the chunk_ids of passed_claims."""
+    payload = json.dumps({"claims": [
+        {"claim": "Bookings receive a full refund.", "chunk_id": "DOC_04_§1"}
+    ]})
+    stub = StubLLM(responses={
+        "Candidate Chunks:": payload,
+        "Claim: ": json.dumps({"supported": True, "reason": "matches"}),
+    })
+    gen = AnswerGenerator(stub)
+    verif = GroundingVerifier(stub)
+    fusion = FusionPipeline()
+    state = SessionState(session_id="test_evidence_cited_only")
+
+    turn = answer_new_topic(state, "cancellation refund policy", indexed_dev_corpus, fusion, gen, verif)
+
+    entry = state.ledger.entries["entry_1"]
+    passed_claims = entry.claims
+    assert len(passed_claims) == 1
+    assert set(entry.evidence.keys()) == {c.chunk_id for c in passed_claims}
+    assert "DOC_04_§1" in entry.evidence
+
+
+
 # ---------------------------------------------------------------------------
 # 4. Render tests
 # ---------------------------------------------------------------------------

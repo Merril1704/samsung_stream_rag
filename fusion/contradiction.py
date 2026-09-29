@@ -24,6 +24,10 @@ NEGATION_PATTERNS = [r"\bnot\b", r"\bno\b", r"\bcannot\b", r"\bnever\b", r"\bn't
 CONTRADICTION_SYSTEM_PROMPT = """\
 You are checking whether two retrieved passages genuinely contradict each other on the same specific claim.
 
+CRITICAL RULES:
+1. Two passages are a GENUINE contradiction ONLY if they state mutually exclusive, conflicting rules for the EXACT SAME condition, situation, and scope.
+2. Different rules that apply to DIFFERENT scopes, categories, regions, or conditions (e.g., domestic travel vs. international travel, standard vs. emergency, employee vs. contractor) are NOT contradictions. They are distinct rules for distinct situations.
+
 Respond with ONLY compact JSON, no prose, no markdown fences, no repeated output:
 {"is_contradiction": true|false, "reason": "..."}
 
@@ -31,6 +35,11 @@ Example:
 Passage A: "Cancellations made within 48 hours of the event are non-refundable."
 Passage B: "Cancellations made within 48 hours are eligible for a 50% refund."
 {"is_contradiction": true, "reason": "different refund outcomes stated for the same 48-hour cancellation window"}
+
+Example:
+Passage A: "Domestic travel requires receipts for expenses exceeding ₹500."
+Passage B: "International travel requires original currency receipts and conversion forms."
+{"is_contradiction": false, "reason": "different policy scopes (domestic vs. international travel), not a conflict"}
 
 Example:
 Passage A: "The venue holds up to 200 guests."

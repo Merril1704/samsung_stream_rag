@@ -2,7 +2,7 @@
 from session.ledger import LedgerClaim, LedgerEntry, AnswerLedger, active_claims, commit_entry
 from session.generator import AnswerGenerator
 from session.render import render
-from session.pipeline import TurnResult, answer_new_topic
+from session.pipeline import TurnResult, answer_new_topic, answer_refinement
 
 __all__ = [
     "LedgerClaim",
@@ -14,4 +14,5 @@ __all__ = [
     "render",
     "TurnResult",
     "answer_new_topic",
+    "answer_refinement",
 ]

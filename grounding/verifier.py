@@ -120,6 +120,8 @@ class GroundingVerifier:
         self,
         entries: list[ClaimEntry],
         evidence: list[EvidenceChunk],
+        *,
+        extra_cited_chunk_ids: set[str] | None = None,
     ) -> VerificationResult:
         """
         Verifies a list of ClaimEntry objects against evidence.
@@ -154,6 +156,7 @@ class GroundingVerifier:
                 atomic_items.append((entry.claim, entry.chunk_id))
 
         all_cited_chunk_ids = {cid for _, cid in atomic_items if cid is not None}
+        cherry_pick_cited_chunk_ids = (all_cited_chunk_ids | extra_cited_chunk_ids) if extra_cited_chunk_ids else all_cited_chunk_ids
 
         verdicts: list[ClaimVerdict] = []
         for claim_text, cited_id in atomic_items:
@@ -173,7 +176,7 @@ class GroundingVerifier:
             else:
                 chunk = evidence_map[cited_id]
                 supported, reason = self.entailment.check(claim_text, chunk.text)
-                cherry_pick_violation = _is_cherry_pick(chunk, all_cited_chunk_ids)
+                cherry_pick_violation = _is_cherry_pick(chunk, cherry_pick_cited_chunk_ids)
 
                 verdicts.append(
                     ClaimVerdict(

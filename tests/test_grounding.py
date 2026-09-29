@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import pytest
 from grounding.verifier import GroundingVerifier
+from grounding.types import ClaimEntry
 from retrieval.types import EvidenceChunk
 from controller.llm_factory import get_llm_client
 from controller.llm_wrapper import ContextBudgetExceeded
@@ -267,5 +268,56 @@ def test_decomposer_stub_runtime_error_sets_decomposition_degraded():
         evidence=[chunk],
     )
     assert normal_result.decomposition_degraded is False
+
+
+def test_extra_cited_chunk_ids_none_preserves_existing_behavior():
+    """Calling verify_entries with no third argument preserves existing cherry-pick detection."""
+    chunk_04 = EvidenceChunk(
+        chunk_id="DOC_04_§1", doc_id="DOC_04", section="§1",
+        text="Bookings cancelled more than 30 days before event receive full refund.",
+        retrieval_score=0.9, contradiction_flag=True, contradicts_chunk_id="DOC_10_§2",
+    )
+    chunk_10 = EvidenceChunk(
+        chunk_id="DOC_10_§2", doc_id="DOC_10", section="§2",
+        text="Vendors may enforce a 14-day cancellation window.",
+        retrieval_score=0.85, contradiction_flag=True, contradicts_chunk_id="DOC_04_§1",
+    )
+    class StubClient:
+        def complete(self, system: str, user: str, *, max_tokens: int | None = None) -> str:
+            return '{"supported": true, "reason": "matches"}'
+
+    verifier = GroundingVerifier(llm_client=StubClient())
+    entry = ClaimEntry(claim="Cancellations more than 30 days receive full refund.", chunk_id="DOC_04_§1")
+    res = verifier.verify_entries([entry], evidence=[chunk_04, chunk_10])
+
+    assert res.all_verified is False
+    assert len(res.cherry_picks) == 1
+    assert res.claims[0].cherry_pick_violation is True
+
+
+def test_extra_cited_chunk_ids_prevents_cherry_pick_false_positive():
+    """Providing extra_cited_chunk_ids satisfies the contradiction pair check."""
+    chunk_04 = EvidenceChunk(
+        chunk_id="DOC_04_§1", doc_id="DOC_04", section="§1",
+        text="Bookings cancelled more than 30 days before event receive full refund.",
+        retrieval_score=0.9, contradiction_flag=True, contradicts_chunk_id="DOC_10_§2",
+    )
+    chunk_10 = EvidenceChunk(
+        chunk_id="DOC_10_§2", doc_id="DOC_10", section="§2",
+        text="Vendors may enforce a 14-day cancellation window.",
+        retrieval_score=0.85, contradiction_flag=True, contradicts_chunk_id="DOC_04_§1",
+    )
+    class StubClient:
+        def complete(self, system: str, user: str, *, max_tokens: int | None = None) -> str:
+            return '{"supported": true, "reason": "matches"}'
+
+    verifier = GroundingVerifier(llm_client=StubClient())
+    entry = ClaimEntry(claim="Cancellations more than 30 days receive full refund.", chunk_id="DOC_04_§1")
+    # DOC_10_§2 is cited in active claims (passed via extra_cited_chunk_ids)
+    res = verifier.verify_entries([entry], evidence=[chunk_04, chunk_10], extra_cited_chunk_ids={"DOC_10_§2"})
+
+    assert res.all_verified is True
+    assert len(res.cherry_picks) == 0
+    assert res.claims[0].cherry_pick_violation is False
 
 
