@@ -82,3 +82,45 @@ def test_factory_returns_openai_compatible_client(monkeypatch):
     client = get_llm_client()
     assert isinstance(client, OpenAICompatibleLLMClient)
     assert client.model == "test-model"
+
+
+def test_factory_returns_ollama_client(monkeypatch):
+    pytest.importorskip("openai")
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    client = get_llm_client()
+    assert isinstance(client, OpenAICompatibleLLMClient)
+    assert client.model == "phi35-4k:latest"
+
+
+def test_factory_returns_groq_client(monkeypatch):
+    pytest.importorskip("openai")
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_API_KEY", "test_mock_groq_key")
+    client = get_llm_client()
+    assert isinstance(client, OpenAICompatibleLLMClient)
+    assert client.model == "openai/gpt-oss-20b"
+
+
+def test_factory_groq_missing_key_raises_value_error(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.setattr("controller.llm_factory.load_env", lambda: None)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(ValueError) as exc:
+        get_llm_client()
+    assert "GROQ_API_KEY environment variable is required" in str(exc.value)
+
+
+def test_counting_client_captures_usage_from_inner():
+    class UsageMockClient:
+        def __init__(self):
+            self.last_usage = {"prompt_tokens": 15, "completion_tokens": 8, "total_tokens": 23}
+
+        def complete(self, system: str, user: str, **kwargs) -> str:
+            return "ok"
+
+    inner = UsageMockClient()
+    counting = CountingLLMClient(inner)
+    counting.complete("sys", "usr")
+    assert len(counting.log) == 1
+    assert counting.log[0]["usage"] == {"prompt_tokens": 15, "completion_tokens": 8, "total_tokens": 23}

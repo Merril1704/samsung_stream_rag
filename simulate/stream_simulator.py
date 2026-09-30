@@ -2,6 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from controller import SessionState, RuleBasedController, ModelBasedController, MockLLMClient, HybridController
+from session.orchestrator import StreamRAGOrchestrator
 
 SCENARIO_1 = [
     (0.0, "I need to plan a customer workshop in"),
@@ -14,12 +15,14 @@ SCENARIO_3 = [
 ]
 
 
-def run_scenario(controller, chunks, session_id, last_answer_topic=None):
+def run_scenario(controller, chunks, session_id, last_answer_topic=None, log_path=None):
+    orchestrator = StreamRAGOrchestrator(controller=controller, log_path=log_path)
     state = SessionState(session_id=session_id)
     state.last_answer_topic = last_answer_topic
     print(f"\n--- {controller.mode} :: {session_id} ---")
     for ts, chunk in chunks:
-        d = controller.decide(state, chunk, ts)
+        res = orchestrator.step(state, chunk, ts)
+        d = res.decision
         print(f"[{ts:>4.1f}s] chunk={chunk!r:52} -> {d.action:9} "
               f"trigger={d.trigger:12} conf={d.confidence:.2f}  {d.reason}")
 

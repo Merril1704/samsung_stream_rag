@@ -220,3 +220,139 @@ def test_contradiction_screen_scope_distinction_doc07_doc06(indexed_dev_corpus):
     assert len(pairs_2) == 0, f"Expected no contradiction between DOC_07_§2 and DOC_06_§1, got: {pairs_2}"
     assert c07_2.contradiction_flag is False
     assert c06_1.contradiction_flag is False
+
+
+class _TrackingLLM:
+    def __init__(self, response='{"is_contradiction": false, "reason": "test"}'):
+        self.calls: list[tuple[str, str]] = []
+        self.response = response
+
+    def complete(self, system: str, user: str, **kwargs) -> str:
+        self.calls.append((system, user))
+        return self.response
+
+
+def test_prefilter_unrelated_chunks_no_llm_call():
+    """Unrelated chunks discussing different domains must be pre-filtered with 0 LLM calls."""
+    c1 = EvidenceChunk(
+        chunk_id="DOC_A_§1",
+        doc_id="DOC_A",
+        section="§1",
+        text="Conference Room 4B has a maximum capacity of 30 people and includes video conferencing equipment.",
+        retrieval_score=0.9,
+    )
+    c2 = EvidenceChunk(
+        chunk_id="DOC_B_§1",
+        doc_id="DOC_B",
+        section="§1",
+        text="All international travel requests exceeding ₹50,000 must be approved by the Department Head.",
+        retrieval_score=0.85,
+    )
+    llm = _TrackingLLM()
+    screen = ContradictionScreen(llm_client=llm)
+    pairs = screen.screen("meeting room booking", [c1, c2])
+
+    assert len(pairs) == 0
+    assert len(llm.calls) == 0
+    assert screen.last_screen_stats["total_candidate_pairs"] == 1
+    assert screen.last_screen_stats["prefiltered_pairs"] == 1
+    assert screen.last_screen_stats["llm_calls"] == 0
+    assert screen.last_screen_stats["prefilter_rate"] == 1.0
+
+
+def test_prefilter_same_topic_conflicting_quantities_calls_llm():
+    """Chunks discussing the same topic with conflicting numeric dimensions must reach the LLM."""
+    c1 = EvidenceChunk(
+        chunk_id="DOC_A_§1",
+        doc_id="DOC_A",
+        section="§1",
+        text="Grand Hall conference center capacity allows a maximum of 200 guests for banquet seating.",
+        retrieval_score=0.9,
+    )
+    c2 = EvidenceChunk(
+        chunk_id="DOC_B_§1",
+        doc_id="DOC_B",
+        section="§1",
+        text="Grand Hall conference center capacity allows a maximum of 150 guests under local fire regulations.",
+        retrieval_score=0.88,
+    )
+    llm = _TrackingLLM(response='{"is_contradiction": true, "reason": "conflicting capacity limits for Grand Hall"}')
+    screen = ContradictionScreen(llm_client=llm)
+    pairs = screen.screen("Grand Hall conference center capacity", [c1, c2])
+
+    assert len(pairs) == 1
+    assert len(llm.calls) == 1
+    assert screen.last_screen_stats["total_candidate_pairs"] == 1
+    assert screen.last_screen_stats["prefiltered_pairs"] == 0
+    assert screen.last_screen_stats["llm_calls"] == 1
+    assert screen.last_screen_stats["prefilter_rate"] == 0.0
+
+
+def test_prefilter_same_topic_conflicting_dates_calls_llm():
+    """Chunks discussing the same policy with conflicting calendar dates must reach the LLM."""
+    c1 = EvidenceChunk(
+        chunk_id="DOC_TAX_§1",
+        doc_id="DOC_TAX",
+        section="§1",
+        text="Annual employee tax declaration filings must be submitted by March 15 to payroll.",
+        retrieval_score=0.9,
+    )
+    c2 = EvidenceChunk(
+        chunk_id="DOC_FIN_§1",
+        doc_id="DOC_FIN",
+        section="§1",
+        text="Annual employee tax declaration filings must be submitted by April 30 to payroll.",
+        retrieval_score=0.85,
+    )
+    llm = _TrackingLLM(response='{"is_contradiction": true, "reason": "different tax filing deadlines"}')
+    screen = ContradictionScreen(llm_client=llm)
+    pairs = screen.screen("tax declaration filing deadline", [c1, c2])
+
+    assert len(pairs) == 1
+    assert len(llm.calls) == 1
+    assert screen.last_screen_stats["llm_calls"] == 1
+
+
+def test_prefilter_negation_policy_conflict_calls_llm():
+    """Chunks sharing topic with opposing permission/negation must reach the LLM."""
+    c1 = EvidenceChunk(
+        chunk_id="DOC_EXP_§1",
+        doc_id="DOC_EXP",
+        section="§1",
+        text="Domestic travel meal expenses require original itemized receipts for reimbursement.",
+        retrieval_score=0.9,
+    )
+    c2 = EvidenceChunk(
+        chunk_id="DOC_EXP_§2",
+        doc_id="DOC_OTHER",
+        section="§2",
+        text="Domestic travel meal expenses do not require itemized receipts for amounts under daily allowance.",
+        retrieval_score=0.85,
+    )
+    llm = _TrackingLLM(response='{"is_contradiction": true, "reason": "opposing receipt requirement"}')
+    screen = ContradictionScreen(llm_client=llm)
+    pairs = screen.screen("domestic meal expense receipt requirements", [c1, c2])
+
+    assert len(pairs) == 1
+    assert len(llm.calls) == 1
+    assert screen.last_screen_stats["llm_calls"] == 1
+
+
+def test_prefilter_telemetry_statistics():
+    """Verify ContradictionScreen properly records all telemetry stats over multi-chunk inputs."""
+    chunks = [
+        EvidenceChunk(chunk_id="C1", doc_id="DOC1", section="§1", text="Venue capacity 100 guests", retrieval_score=0.9),
+        EvidenceChunk(chunk_id="C2", doc_id="DOC2", section="§1", text="Venue capacity 80 guests", retrieval_score=0.8),
+        EvidenceChunk(chunk_id="C3", doc_id="DOC3", section="§1", text="Unrelated flight baggage rules", retrieval_score=0.7),
+    ]
+    llm = _TrackingLLM(response='{"is_contradiction": true, "reason": "capacity discrepancy"}')
+    screen = ContradictionScreen(llm_client=llm)
+    screen.screen("venue capacity", chunks)
+
+    stats = screen.last_screen_stats
+    assert stats["total_candidate_pairs"] == 3  # (C1,C2), (C1,C3), (C2,C3)
+    assert stats["llm_calls"] == 1  # Only (C1, C2)
+    assert stats["prefiltered_pairs"] == 2  # (C1, C3) and (C2, C3)
+    assert abs(stats["prefilter_rate"] - (2 / 3)) < 1e-6
+    assert stats["latency_s"] >= 0.0
+

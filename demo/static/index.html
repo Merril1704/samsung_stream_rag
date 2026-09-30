@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Streaming Live RAG — Interactive Demonstration</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header & Top Navigation -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <span class="pulse-indicator"></span>
+        <span class="logo-title">STREAMING LIVE RAG</span>
+      </div>
+      <span class="header-tag">Samsung Theme 04</span>
+      <span class="header-sub">Speculative Background Pre-fetch & Zero-Latency Handoff</span>
+    </div>
+    <div class="header-controls">
+      <button id="scenario-next-btn" class="btn btn-primary" title="Advance to the next chunk in the demo scenario">
+        <span class="btn-icon">⚡</span> Next Scenario Chunk
+      </button>
+      <button id="reset-btn" class="btn btn-outline" title="Clear session and start fresh">
+        <span class="btn-icon">↺</span> Reset Session
+      </button>
+    </div>
+  </header>
+
+  <!-- Architectural Contrast Banner -->
+  <section class="contrast-banner">
+    <div class="contrast-card ordinary">
+      <div class="contrast-header">
+        <span class="badge badge-gray">TRADITIONAL RAG</span>
+        <h4>Reactive Pipeline</h4>
+      </div>
+      <p class="contrast-desc">
+        Waits silently until the speaker finishes talking $\to$ Speech ends $\to$ Initiates cold retrieval 
+        <span class="highlight-warn">(200–600ms latency penalty)</span> $\to$ Audience waits.
+      </p>
+    </div>
+    <div class="contrast-arrow">➔ VS ➔</div>
+    <div class="contrast-card streaming">
+      <div class="contrast-header">
+        <span class="badge badge-cyan">STREAMING LIVE RAG</span>
+        <h4>Proactive Speculative Pipeline</h4>
+      </div>
+      <p class="contrast-desc">
+        Continuously analyzes partial speech $\to$ Gates noise (WAIT) $\to$ 
+        <span class="highlight-accent">Speculatively pre-fetches evidence in background while speaking</span> $\to$ 
+        <span class="highlight-success">Zero-latency handoff (0ms retrieval delay)</span> upon completion!
+      </p>
+    </div>
+  </section>
+
+  <!-- Main Demonstration Dual-Panel Grid -->
+  <main class="demo-layout">
+    
+    <!-- LEFT PANEL: Interactive Chat & Speech Feed -->
+    <section class="chat-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="icon">💬</span>
+          <h3>Live Conversation Stream</h3>
+        </div>
+        <div class="scenario-status" id="scenario-step-indicator">
+          Demo: Ready (Step 0/5)
+        </div>
+      </div>
+
+      <div class="chat-body" id="chat-messages">
+        <!-- Welcoming system card -->
+        <div class="chat-card system-card">
+          <div class="card-tag">SYSTEM READY</div>
+          <h4>Interactive Streaming RAG Testbed</h4>
+          <p>
+            Type partial spoken utterances into the box below or click 
+            <strong>"Next Scenario Chunk"</strong> to feed incremental speech in real time.
+          </p>
+          <div class="scenario-box">
+            <div class="scenario-box-title">Preset Scenario 1: Multi-Intent Corporate Workshop</div>
+            <ol class="scenario-steps-list">
+              <li><code>"I need to plan"</code> <span class="tag-subtle">WAIT</span></li>
+              <li><code>"a customer workshop in Pune for 30 people"</code> <span class="tag-subtle tag-prefetch">PREFETCH</span></li>
+              <li><code>"and I need the cancellation policy"</code> <span class="tag-subtle tag-prefetch">MULTI-INTENT</span></li>
+              <li><code>"and catering options"</code> <span class="tag-subtle tag-prefetch">UPDATE</span></li>
+              <li><code>[End Utterance]</code> <span class="tag-subtle tag-retrive">0ms SYNTHESIS</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speech Stream Input Bar -->
+      <div class="chat-input-area">
+        <div class="stream-wave-indicator" id="stream-indicator">
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="stream-text" id="stream-status-text">Microphone simulator ready</span>
+        </div>
+
+        <form id="chat-form" class="input-form" onsubmit="return false;">
+          <input 
+            type="text" 
+            id="chunk-input" 
+            class="chunk-input" 
+            placeholder="Type partial speech chunk here (e.g. 'I need to plan')..."
+            autocomplete="off"
+          />
+          <div class="input-actions">
+            <button type="button" id="send-chunk-btn" class="btn btn-secondary" title="Send as partial speech (is_final=False)">
+              <span class="btn-icon">🎙️</span> Send Chunk
+            </button>
+            <button type="button" id="end-utterance-btn" class="btn btn-accent" title="Mark speech finished (is_final=True)">
+              <span class="btn-icon">⏹️</span> End Utterance
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Live RAG Pipeline (7 Dynamic Stages) -->
+    <aside class="pipeline-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="icon">⚙️</span>
+          <h3>Live RAG Pipeline Stages</h3>
+        </div>
+        <div class="pipeline-latency" id="total-latency-tag">
+          Latency: 0.0ms
+        </div>
+      </div>
+
+      <div class="stages-container">
+        
+        <!-- Stage 1: Transcript Accumulator -->
+        <div class="stage-card" id="stage-transcript">
+          <div class="stage-header">
+            <span class="stage-num">01</span>
+            <h4>Transcript Accumulator</h4>
+            <span class="stage-badge" id="transcript-words-badge">0 words</span>
+          </div>
+          <div class="stage-body">
+            <div class="data-row">
+              <span class="label">Latest Chunk:</span>
+              <span class="value-highlight" id="stage-latest-chunk">—</span>
+            </div>
+            <div class="data-row">
+              <span class="label">Accumulated:</span>
+              <div class="transcript-full" id="stage-accumulated-transcript">Waiting for speech...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 2: Intent Stability Controller -->
+        <div class="stage-card" id="stage-controller">
+          <div class="stage-header">
+            <span class="stage-num">02</span>
+            <h4>Intent Stability Controller</h4>
+            <span class="decision-pill pill-idle" id="stage-action-pill">IDLE</span>
+          </div>
+          <div class="stage-body">
+            <div class="metrics-grid">
+              <div class="metric-item">
+                <span class="metric-label">Confidence</span>
+                <span class="metric-val" id="stage-confidence">0.00</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Trigger Rule</span>
+                <span class="metric-val" id="stage-trigger">none</span>
+              </div>
+              <div class="metric-item full-width">
+                <span class="metric-label">Decision Reason</span>
+                <span class="metric-text" id="stage-reason">System awaiting user input</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 3: Speculative Background Retrieval -->
+        <div class="stage-card" id="stage-speculative">
+          <div class="stage-header">
+            <span class="stage-num">03</span>
+            <h4>Speculative Retrieval (Pre-warming)</h4>
+            <span class="status-pill pill-cold" id="stage-cache-status">COLD CACHE</span>
+          </div>
+          <div class="stage-body">
+            <div class="data-row">
+              <span class="label">Pre-fetch Duration:</span>
+              <span class="value-highlight" id="stage-prefetch-time">0.0ms</span>
+            </div>
+            <div class="data-row">
+              <span class="label">Pre-warmed Candidates:</span>
+              <div class="chunk-tags-list" id="stage-chunk-tags">
+                <span class="empty-hint">No speculative chunks pre-fetched yet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 4: Multi-Intent Decomposition -->
+        <div class="stage-card" id="stage-decomposer">
+          <div class="stage-header">
+            <span class="stage-num">04</span>
+            <h4>Multi-Intent Decomposition</h4>
+            <span class="stage-badge" id="stage-multi-intent-badge">Single Intent</span>
+          </div>
+          <div class="stage-body">
+            <div class="subqueries-list" id="stage-subqueries-list">
+              <span class="empty-hint">No multi-intent sub-queries active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 5: Evidence Fusion & Contradiction -->
+        <div class="stage-card" id="stage-fusion">
+          <div class="stage-header">
+            <span class="stage-num">05</span>
+            <h4>Evidence Fusion & Screening</h4>
+            <span class="stage-badge" id="stage-fusion-badge">Pending</span>
+          </div>
+          <div class="stage-body">
+            <div class="metrics-grid">
+              <div class="metric-item">
+                <span class="metric-label">Fused Chunks</span>
+                <span class="metric-val" id="stage-fused-count">0</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Contradiction</span>
+                <span class="metric-val" id="stage-contra-status">Clean</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 6: Grounding Verification -->
+        <div class="stage-card" id="stage-grounding">
+          <div class="stage-header">
+            <span class="stage-num">06</span>
+            <h4>Grounding & Entailment Verification</h4>
+            <span class="stage-badge" id="stage-grounding-badge">0 / 0 Claims</span>
+          </div>
+          <div class="stage-body">
+            <div class="claims-list" id="stage-claims-list">
+              <span class="empty-hint">No claims generated yet</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 7: Answer Ledger -->
+        <div class="stage-card" id="stage-ledger">
+          <div class="stage-header">
+            <span class="stage-num">07</span>
+            <h4>Answer Ledger State</h4>
+            <span class="stage-badge" id="stage-ledger-badge">0 Entries</span>
+          </div>
+          <div class="stage-body">
+            <div class="ledger-list" id="stage-ledger-list">
+              <span class="empty-hint">Ledger is empty</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

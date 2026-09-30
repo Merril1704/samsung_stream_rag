@@ -5,7 +5,16 @@ Ollama, Anthropic, or a hosted OpenAI-compatible provider is a config change,
 not a code change.
 
 Env vars:
-  LLM_PROVIDER   "anthropic" | "openai_compatible" | "mock"   (default: mock)
+  LLM_PROVIDER   "ollama" | "groq" | "anthropic" | "openai_compatible" | "mock"   (default: mock)
+
+  # groq
+  GROQ_API_KEY
+  GROQ_MODEL               (default: openai/gpt-oss-20b)
+  GROQ_BASE_URL            (default: https://api.groq.com/openai/v1)
+
+  # ollama
+  OLLAMA_MODEL             (default: phi35-4k:latest)
+  OLLAMA_BASE_URL          (default: http://localhost:11434/v1)
 
   # anthropic
   ANTHROPIC_API_KEY
@@ -43,6 +52,18 @@ def get_llm_client(counting: bool = False) -> LLMClient:
     elif provider == "anthropic":
         model = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
         client = AnthropicLLMClient(model=model)
+    elif provider == "ollama":
+        base_url = os.environ.get("OLLAMA_BASE_URL", os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1"))
+        api_key = os.environ.get("OLLAMA_API_KEY", os.environ.get("LLM_API_KEY", "ollama"))
+        model = os.environ.get("OLLAMA_MODEL", os.environ.get("LLM_MODEL", "phi35-4k:latest"))
+        client = OpenAICompatibleLLMClient(base_url=base_url, api_key=api_key, model=model)
+    elif provider == "groq":
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key or not api_key.strip():
+            raise ValueError("GROQ_API_KEY environment variable is required when LLM_PROVIDER='groq'")
+        base_url = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+        model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+        client = OpenAICompatibleLLMClient(base_url=base_url, api_key=api_key, model=model)
     elif provider == "openai_compatible":
         base_url = os.environ["LLM_BASE_URL"]
         api_key = os.environ.get("LLM_API_KEY", "unused")

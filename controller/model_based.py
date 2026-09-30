@@ -11,6 +11,8 @@ specific content (no-hardcoding constraint) — it describes the WAIT / RETRIEVE
 / SUPPRESS decision abstractly and receives only the live transcript.
 """
 import json
+import re
+import time
 from typing import Protocol, Optional
 from .types import SessionState, RetrievalDecision
 
@@ -99,19 +101,45 @@ class OpenAICompatibleLLMClient:
         from openai import OpenAI
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self.model = model
+        self.last_usage: dict[str, int] | None = None
 
     def complete(self, system: str, user: str, *, max_tokens: int | None = None) -> str:
-        tokens = 200 if max_tokens is None else max_tokens
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=tokens,
-            temperature=0,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        )
-        return resp.choices[0].message.content or ""
+        tokens = 500 if max_tokens is None else max_tokens
+        extra_kwargs = {}
+        if "gpt-oss" in self.model or "deepseek-r1" in self.model:
+            extra_kwargs["extra_body"] = {"reasoning_effort": "low"}
+
+        for attempt in range(4):
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=tokens,
+                    temperature=0,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    **extra_kwargs,
+                )
+                usage = getattr(resp, "usage", None)
+                if usage:
+                    self.last_usage = {
+                        "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                        "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                        "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+                    }
+                else:
+                    self.last_usage = None
+                return resp.choices[0].message.content or ""
+            except Exception as e:
+                err_str = str(e).lower()
+                is_rate_limit = "rate_limit" in err_str or "429" in err_str or getattr(e, "status_code", None) == 429
+                if is_rate_limit and attempt < 3:
+                    m = re.search(r"try again in ([\d\.]+)s", str(e))
+                    sleep_time = float(m.group(1)) + 0.6 if m else (2.5 * (attempt + 1))
+                    time.sleep(sleep_time)
+                    continue
+                raise
 
 
 def _extract_first_json_object(raw: str) -> Optional[dict]:

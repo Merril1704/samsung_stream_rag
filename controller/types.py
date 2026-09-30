@@ -5,7 +5,7 @@ from typing import Literal, Optional, Protocol, TYPE_CHECKING
 if TYPE_CHECKING:
     from session.ledger import AnswerLedger
 
-Action = Literal["WAIT", "RETRIEVE", "SUPPRESS"]
+Action = Literal["WAIT", "RETRIEVE", "SUPPRESS", "PREFETCH"]
 Trigger = Literal["provisional", "final", "multi_intent", "suppression", "none"]
 
 
@@ -29,6 +29,9 @@ class SessionState:
     last_answer_topic: Optional[str] = None  # set by the synthesis stage after an answer is produced
     decision_log: list[dict] = field(default_factory=list)
     ledger: AnswerLedger | None = None
+    prefetched_candidate_ids: list[str] = field(default_factory=list)
+    prefetched_query: Optional[str] = None
+    prefetched_latency_s: float = 0.0
 
     def append_chunk(self, chunk: str) -> None:
         if chunk:

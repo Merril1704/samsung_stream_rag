@@ -15,9 +15,9 @@ SYNTACTIC CONSTRAINTS (follow strictly):
 3. ONE fact per claim.
 4. Do not join two facts with "and", "or", or ";".
 5. Copy numbers, dates, and terms verbatim from the chunk.
-6. The chunk_id must be copied exactly from the provided candidate chunks.
+6. For each claim, chunk_id MUST be the exact chunk that directly contains and proves that specific rule, threshold, or fact (e.g. if a chunk has approval thresholds, cite that chunk, not a general policy overview chunk).
 7. State only what the chunks say. Do not extrapolate, generalize, or invent claims.
-8. If a chunk is flagged as having a contradiction, cite both it and its conflicting partner chunk_id.
+8. If any candidate chunk has '(contradiction_flag: True, conflicts with: CHUNK_ID)', you MUST generate at least one claim citing that chunk AND at least one separate claim citing the conflicting CHUNK_ID so that both conflicting perspectives are surfaced.
 9. If the chunks do not answer the topic, return {"claims": []}."""
 
 
@@ -53,7 +53,7 @@ class AnswerGenerator:
         user_prompt += f"\nCandidate Chunks:\n{chunks_text}\n\nRespond with compact JSON only:"
 
         try:
-            raw = self.llm_client.complete(GENERATOR_SYSTEM_PROMPT, user_prompt, max_tokens=500)
+            raw = self.llm_client.complete(GENERATOR_SYSTEM_PROMPT, user_prompt, max_tokens=1000)
         except ContextBudgetExceeded:
             raise
         except Exception as e:
