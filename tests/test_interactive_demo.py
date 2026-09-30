@@ -126,9 +126,46 @@ def test_http_api_endpoints(live_server):
         assert data["action"] == "WAIT"
         assert data["stages"]["controller"]["action"] == "WAIT"
 
-    # Test GET static index.html
+    # Test GET static index.html chatbot UI
     req_html = Request(f"{live_server}/")
     with urlopen(req_html) as resp:
         assert resp.status == 200
         html = resp.read().decode()
         assert "STREAMING LIVE RAG" in html
+        assert "Inspect RAG Activity" in html
+        assert "chat-input" in html
+
+
+def test_split_into_streaming_chunks():
+    """Verify arbitrary utterance is split into progressive chunks."""
+    from demo.server import split_into_streaming_chunks
+
+    utterance = "I need to cancel a corporate event booked for next week because of a force majeure closure."
+    chunks = split_into_streaming_chunks(utterance)
+    assert len(chunks) >= 2
+    # Intermediate chunks must be is_final=False
+    for c_text, is_final in chunks[:-1]:
+        assert is_final is False
+        assert len(c_text.strip()) > 0
+    # Final chunk must be is_final=True
+    assert chunks[-1][1] is True
+
+
+def test_http_stream_chat_endpoint(live_server):
+    """Test SSE streaming chat endpoint /api/stream_chat."""
+    chat_body = json.dumps({
+        "message": "I need to cancel a corporate event booked for next week because of a force majeure closure."
+    }).encode()
+    req_stream = Request(
+        f"{live_server}/api/stream_chat",
+        data=chat_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(req_stream) as resp:
+        assert resp.status == 200
+        assert "text/event-stream" in resp.headers.get("Content-Type", "")
+        raw_stream = resp.read().decode("utf-8")
+        assert "event: progress" in raw_stream
+        assert "event: complete" in raw_stream
+        assert '"has_answer": true' in raw_stream.lower()
