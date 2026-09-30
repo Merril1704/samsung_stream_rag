@@ -169,3 +169,19 @@ def test_http_stream_chat_endpoint(live_server):
         assert "event: progress" in raw_stream
         assert "event: complete" in raw_stream
         assert '"has_answer": true' in raw_stream.lower()
+
+
+def test_semantic_response_cache():
+    """Verify SemanticResponseCache loads golden verified entries and executes semantic matching."""
+    from session.cache import SemanticResponseCache
+
+    cache = SemanticResponseCache()
+    assert len(cache.entries) >= 5
+
+    # Test cache hit on policy question
+    match = cache.lookup("I need to cancel a corporate event due to force majeure")
+    assert match is not None
+    assert match.entry.intent_topic == "Force Majeure Event Cancellation"
+    assert "DOC_04_§3" in match.entry.citations
+    assert len(match.entry.claims) >= 1
+

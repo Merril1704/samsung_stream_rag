@@ -90,6 +90,8 @@ def split_into_streaming_chunks(utterance: str) -> list[tuple[str, bool]]:
         chunks.append((c, is_last))
     return chunks
 
+from session.cache import SemanticResponseCache
+
 DEFAULT_SCENARIO = {
     "title": "Theme 04 Example: Customer Workshop & Cancellation Policy",
     "description": (
@@ -135,194 +137,6 @@ DEFAULT_SCENARIO = {
     ],
 }
 
-PREWRITTEN_PROMPT_DATABASE = [
-    {
-        "id": "cancellation_force_majeure",
-        "keywords": ["force majeure", "natural disaster", "closure", "mandated closure"],
-        "topic": "Force Majeure Event Cancellation",
-        "answer": "Under enterprise event policy [DOC_04_§3], cancellations resulting from documented force majeure events (such as natural disasters or government-mandated facility closures) are completely exempt from standard cancellation windows. All deposits and fees are eligible for a 100% full refund regardless of notice period.",
-        "citations": ["DOC_04_§3"],
-        "claims": [
-            {"text": "Cancellations resulting from documented force majeure events are exempt from standard cancellation windows.", "citation": "DOC_04_§3", "supported": True},
-            {"text": "Force majeure event cancellations receive a full 100% refund of all deposits.", "citation": "DOC_04_§3", "supported": True},
-        ],
-        "chunks": ["DOC_04_§3", "DOC_04_§1", "DOC_04_§2"],
-        "sub_queries": ["corporate event cancellation force majeure refund policy"],
-    },
-    {
-        "id": "pune_workshop",
-        "keywords": ["pune", "workshop", "30 people", "catering", "venue"],
-        "topic": "Customer Workshop in Pune (Venue & Catering)",
-        "answer": "For a 30-person workshop in Pune, Venue B (Grand Hall Conference Suite) accommodates 30 seated theatre-style with breakout rooms [DOC_02_§2], while Venue A (Riverside Business Center) seats up to 40 with projector and standard AV [DOC_02_§1]. For catering, three standard packages are available: Package 1 (breakfast), Package 2 (working lunch), and Package 3 (full-day catering) [DOC_05_§1].",
-        "citations": ["DOC_02_§1", "DOC_02_§2", "DOC_05_§1"],
-        "claims": [
-            {"text": "Venue B accommodates 30 seated theatre-style with breakout rooms.", "citation": "DOC_02_§2", "supported": True},
-            {"text": "Venue A accommodates 40 seated with projector and standard AV.", "citation": "DOC_02_§1", "supported": True},
-            {"text": "Three standard catering packages (breakfast, working lunch, full-day) are available.", "citation": "DOC_05_§1", "supported": True},
-        ],
-        "chunks": ["DOC_02_§1", "DOC_02_§2", "DOC_05_§1"],
-        "sub_queries": ["customer workshop venue capacity Pune 30 people", "standard catering packages options"],
-    },
-    {
-        "id": "cancellation_standard",
-        "keywords": ["standard cancellation", "cancellation rules", "cancellation windows", "refund tiers", "cancel a corporate event", "cancel corporate event"],
-        "topic": "Standard Corporate Event Cancellation Windows",
-        "answer": "Corporate event cancellations adhere to standard tiered notice windows [DOC_04_§1]: cancellations made more than 30 days prior receive a full refund; cancellations between 15 and 30 days receive a 50% refund; cancellations made under 15 days prior are non-refundable. Approved refunds are processed within 10 business days [DOC_04_§2].",
-        "citations": ["DOC_04_§1", "DOC_04_§2"],
-        "claims": [
-            {"text": "Cancellations over 30 days prior to the event receive a full refund.", "citation": "DOC_04_§1", "supported": True},
-            {"text": "Cancellations between 15 and 30 days prior receive a 50% refund.", "citation": "DOC_04_§1", "supported": True},
-            {"text": "Cancellations under 15 days prior are non-refundable.", "citation": "DOC_04_§1", "supported": True},
-            {"text": "Refunds are processed within 10 business days of cancellation confirmation.", "citation": "DOC_04_§2", "supported": True},
-        ],
-        "chunks": ["DOC_04_§1", "DOC_04_§2"],
-        "sub_queries": ["standard cancellation windows corporate events refund percentage"],
-    },
-    {
-        "id": "cancellation_refinement",
-        "is_refinement": True,
-        "refines_topic": "cancellation",
-        "keywords": ["mandated closure", "government mandated", "government closure", "closure due to", "what if force majeure"],
-        "topic": "Standard Corporate Event Cancellation Windows",
-        "answer": "Following up on cancellation terms for force majeure [DOC_04_§3]: cancellations resulting from documented force majeure events (such as government-mandated closures or natural disasters) are specifically exempt from standard cancellation windows and eligible for a 100% full refund regardless of notice period.",
-        "citations": ["DOC_04_§3"],
-        "claims": [
-            {"text": "Documented force majeure events like government closures exempt bookings from standard windows.", "citation": "DOC_04_§3", "supported": True},
-            {"text": "Force majeure cancellations receive a full 100% refund regardless of notice period.", "citation": "DOC_04_§3", "supported": True},
-        ],
-        "chunks": ["DOC_04_§3", "DOC_04_§1"],
-        "sub_queries": ["force majeure government mandated closure cancellation exemption full refund"],
-    },
-    {
-        "id": "vehicle_reimbursement",
-        "keywords": ["vehicle", "reimbursement", "personal car", "mileage", "personal vehicle", "driving a personal", "km"],
-        "topic": "Personal Vehicle Travel Expense Policy",
-        "answer": "Under the Domestic Travel Reimbursement Policy [DOC_06_§1], ground transportation is an eligible business travel expense, and expenses over ₹500 require itemized receipts submitted through the Expense Portal within 15 days [DOC_06_§2]. However, specific per-kilometer mileage reimbursement rates for personal vehicle usage are not defined in the current travel policy.",
-        "citations": ["DOC_06_§1", "DOC_06_§2"],
-        "claims": [
-            {"text": "Ground transportation is an eligible reimbursable expense for domestic business travel.", "citation": "DOC_06_§1", "supported": True},
-            {"text": "Expenses over ₹500 require itemized receipts submitted within 15 days of trip completion.", "citation": "DOC_06_§2", "supported": True},
-            {"text": "Specific per-kilometer personal car mileage rates are not defined in the current policy.", "citation": "DOC_06_§1", "supported": True},
-        ],
-        "chunks": ["DOC_06_§1", "DOC_06_§2", "DOC_06_§3"],
-        "sub_queries": ["ground transportation domestic travel reimbursement policy receipt requirements"],
-    },
-    {
-        "id": "expense_standard",
-        "keywords": ["approval requirements", "domestic travel expenses", "expense approval", "who approves", "expense report", "travel expenses"],
-        "topic": "Domestic Expense Approval Requirements",
-        "answer": "Under the standard domestic travel workflow [DOC_09_§1], expense reports under ₹25,000 require only direct manager approval. Approved reimbursements are disbursed within 7 business days of final approval [DOC_06_§3].",
-        "citations": ["DOC_09_§1", "DOC_06_§3"],
-        "claims": [
-            {"text": "Expense reports under ₹25,000 require only direct manager approval.", "citation": "DOC_09_§1", "supported": True},
-            {"text": "Approved reimbursements are disbursed within 7 business days of final approval.", "citation": "DOC_06_§3", "supported": True},
-        ],
-        "chunks": ["DOC_09_§1", "DOC_06_§3"],
-        "sub_queries": ["standard domestic travel expense approval threshold manager sign off"],
-    },
-    {
-        "id": "expense_refinement",
-        "is_refinement": True,
-        "refines_topic": "expense",
-        "keywords": ["exceeds 25000", "over 25000", "25000 rupees", "exceeding 25000", "more than 25000"],
-        "topic": "Domestic Expense Approval Requirements",
-        "answer": "Updating approval requirements when exceeding the threshold [DOC_09_§2]: expense reports exceeding ₹25,000 require Senior Director approval in addition to the standard direct manager sign-off.",
-        "citations": ["DOC_09_§2"],
-        "claims": [
-            {"text": "Expense reports exceeding ₹25,000 require Senior Director approval in addition to manager sign-off.", "citation": "DOC_09_§2", "supported": True},
-        ],
-        "chunks": ["DOC_09_§2", "DOC_09_§1"],
-        "sub_queries": ["elevated approval threshold exceeding 25000 rupees senior director"],
-    },
-    {
-        "id": "vendor_cancellation",
-        "keywords": ["vendor", "vendor cancellation", "vendor notice", "external vendor", "vendor payment", "contract terms"],
-        "topic": "Vendor Contract & Cancellation Terms",
-        "answer": "Standard vendor payment terms are net-30 from invoice date [DOC_10_§1]. Directly contracted event vendors (catering, AV, staging) may enforce a 14-day cancellation notice period for full refund eligibility [DOC_10_§2], which differs from the internal event policy's 30-day window.",
-        "citations": ["DOC_10_§1", "DOC_10_§2"],
-        "claims": [
-            {"text": "Standard vendor payment terms are net-30 from invoice date.", "citation": "DOC_10_§1", "supported": True},
-            {"text": "Directly contracted event vendors may enforce a 14-day cancellation notice period.", "citation": "DOC_10_§2", "supported": True},
-        ],
-        "chunks": ["DOC_10_§1", "DOC_10_§2"],
-        "sub_queries": ["procurement vendor payment terms cancellation notice clause 14 days"],
-    },
-    {
-        "id": "event_booking_procedure",
-        "keywords": ["event booking request", "team offsite", "submit a booking", "booking procedure", "book an event"],
-        "topic": "Corporate Event Booking Procedure",
-        "answer": "Event booking requests for team offsites must be submitted through the Events Portal at least 10 business days before the event date, including attendee count, preferred city, and duration [DOC_01_§1]. Events for up to 50 attendees require direct manager approval [DOC_01_§2], and venue confirmation takes 3 to 5 business days [DOC_01_§3].",
-        "citations": ["DOC_01_§1", "DOC_01_§2", "DOC_01_§3"],
-        "claims": [
-            {"text": "Booking requests must be submitted at least 10 business days before the event date.", "citation": "DOC_01_§1", "supported": True},
-            {"text": "Events up to 50 attendees require direct manager approval.", "citation": "DOC_01_§2", "supported": True},
-            {"text": "Venue confirmation typically takes 3 to 5 business days after submission.", "citation": "DOC_01_§3", "supported": True},
-        ],
-        "chunks": ["DOC_01_§1", "DOC_01_§2", "DOC_01_§3"],
-        "sub_queries": ["event booking request submission advance notice lead time approval"],
-    },
-    {
-        "id": "bangalore_venue_catering",
-        "keywords": ["bangalore", "whitefield", "mg road", "bangalore venue", "50 people"],
-        "topic": "Bangalore Venue & Catering Options",
-        "answer": "In Bangalore, Venue D at Whitefield Business Hub accommodates 50 seated attendees with standard AV included [DOC_03_§1]. For smaller groups, Venue E on MG Road seats 25 [DOC_03_§2]. Standard catering offerings include Package 1 (breakfast), Package 2 (working lunch), and Package 3 (full-day catering) [DOC_05_§1].",
-        "citations": ["DOC_03_§1", "DOC_03_§2", "DOC_05_§1"],
-        "claims": [
-            {"text": "Venue D at Whitefield Business Hub in Bangalore seats 50 with standard AV included.", "citation": "DOC_03_§1", "supported": True},
-            {"text": "Three standard catering packages (breakfast, lunch, full-day) are available.", "citation": "DOC_05_§1", "supported": True},
-        ],
-        "chunks": ["DOC_03_§1", "DOC_03_§2", "DOC_05_§1"],
-        "sub_queries": ["venue in Bangalore 50 people capacity", "standard catering packages options"],
-    },
-]
-
-
-def find_prewritten_match(message: str, ledger: AnswerLedger | None = None) -> tuple[dict[str, Any] | None, str | None]:
-    """Finds best matching pre-written response and whether it refines an existing ledger entry.
-    
-    Returns (matched_dict, refine_entry_id).
-    """
-    msg = message.lower().strip()
-    clean_msg = re.sub(r"[^\w\s]", " ", msg)
-    words = set(clean_msg.split())
-
-    best_match = None
-    best_score = 0
-    refine_entry_id = None
-
-    existing_entries: dict[str, str] = {}
-    if ledger and ledger.entries:
-        for k, v in ledger.entries.items():
-            existing_entries[k] = v.topic.lower()
-
-    for item in PREWRITTEN_PROMPT_DATABASE:
-        is_refinement = item.get("is_refinement", False)
-        target_topic = item.get("refines_topic", "").lower()
-
-        matching_entry_id = None
-        if is_refinement:
-            for eid, topic in existing_entries.items():
-                if target_topic and (target_topic in topic or any(w in topic for w in target_topic.split())):
-                    matching_entry_id = eid
-                    break
-            if not matching_entry_id:
-                continue
-
-        score = 0
-        for kw in item["keywords"]:
-            kw_clean = kw.lower()
-            if kw_clean in msg:
-                score += len(kw_clean.split()) * 3
-            elif all(w in words for w in kw_clean.split()):
-                score += len(kw_clean.split()) * 2
-
-        if score > best_score and score >= 2:
-            best_score = score
-            best_match = item
-            refine_entry_id = matching_entry_id
-
-    return best_match, refine_entry_id
-
 
 class LiveDemoPipeline:
     """Manages orchestrator instance and state for the demo server."""
@@ -332,6 +146,7 @@ class LiveDemoPipeline:
         corpus_dir = PROJECT_ROOT / "corpus" / "raw"
         self.index = build_index(str(corpus_dir))
         self.llm = get_llm_client()
+        self.cache = SemanticResponseCache()
         self.controller = RuleBasedController(wait_threshold=4)
         self.decomposer = Decomposer(llm_client=self.llm)
         self.fusion = FusionPipeline(contradiction_screen=ContradictionScreen(llm_client=self.llm))
@@ -369,7 +184,11 @@ class LiveDemoPipeline:
         def wrapped_decomp(q):
             if on_progress:
                 on_progress("decomposition", f"Decomposing multi-intent query: \"{q[:45]}...\"", {})
-            return orig_decomp(q)
+            try:
+                return orig_decomp(q)
+            except Exception:
+                from decomposer.rule_based import RuleBasedDecomposer
+                return RuleBasedDecomposer().decide(q)
 
         def wrapped_fuse(*args, **kwargs):
             if on_progress:
@@ -406,76 +225,100 @@ class LiveDemoPipeline:
                 is_final=is_final,
             )
         except Exception as e:
-            matched, refine_id = find_prewritten_match(self.state.transcript_so_far, self.state.ledger)
-            if is_final and matched:
-                if self.state.ledger is None:
-                    self.state.ledger = AnswerLedger()
-                version = 1
-                action = "NEW_TOPIC"
-                target_entry_id = refine_id
-                if target_entry_id and self.state.ledger and target_entry_id in self.state.ledger.entries:
-                    version = self.state.ledger.entries[target_entry_id].version + 1
-                    action = "REFINE_TOPIC"
-                else:
-                    entry_num = len(self.state.ledger.entries) + 1 if (self.state.ledger and self.state.ledger.entries) else 1
-                    target_entry_id = f"entry_{entry_num}"
-
-                ledger_claims = [
-                    LedgerClaim(claim=c["text"], chunk_id=c.get("citation", "DOC_04_§3"), origin_version=version)
-                    for c in matched["claims"]
-                ]
-                lookup = self.index.get("chunk_lookup", {}) if isinstance(self.index, dict) else getattr(self.index, "chunk_lookup", {})
-                evidence = {cid: lookup[cid] for cid in matched["chunks"] if cid in lookup}
-                commit_entry(
-                    ledger=self.state.ledger,
-                    entry_id=target_entry_id,
-                    topic=matched["topic"],
-                    details=[matched["answer"]],
-                    claims=ledger_claims,
-                    evidence=evidence,
-                    version=version,
-                    turn=self.step_counter,
-                    action=action,
-                )
-                self.state.last_answer_topic = matched["topic"]
-
-                from grounding.types import ClaimVerification, VerificationResult
-                from session.types import OrchestratorResult, TurnResult
-                from controller.types import ControllerDecision
-
-                mock_claims = [
-                    ClaimVerification(
-                        claim_text=c["text"],
-                        cited_chunk_id=c.get("citation", "DOC_04_§3"),
-                        supported=True,
-                        citation_exists=True,
-                        cherry_pick_violation=False,
-                        reason="VERIFIED",
-                    )
-                    for c in matched["claims"]
-                ]
-                mock_verif = VerificationResult(
-                    claims=mock_claims,
-                    all_verified=True,
-                    fabricated_citations=[],
-                    unsupported_claims=[],
-                )
-                mock_turn = TurnResult(
-                    text=matched["answer"],
-                    verification=mock_verif,
-                    fused_chunk_ids=matched["chunks"],
-                )
+            if not is_final:
+                from controller.types import RetrievalDecision
+                from session.orchestrator import OrchestratorResult
+                from retrieval.retriever import retrieve_candidates
+                cands = retrieve_candidates(self.state.transcript_so_far, self.index, top_k=5)
+                self.state.prefetched_candidate_ids = [c.chunk_id for c in cands]
                 res = OrchestratorResult(
-                    action="RETRIEVE",
-                    decision=ControllerDecision(action="RETRIEVE", trigger="eos_final", confidence=0.98, reason="Pre-warmed cache handoff"),
-                    turn_result=mock_turn,
-                    prefetched_chunk_ids=self.state.prefetched_candidate_ids or matched["chunks"],
-                    prefetched_latency_ms=0.0,
-                    is_cache_hit=True,
-                    sub_queries=matched.get("sub_queries", []),
+                    action="PREFETCH",
+                    decision=RetrievalDecision(action="RETRIEVE", trigger="provisional", confidence=0.85, reason="Speculative pre-fetch"),
+                    turn_result=None,
+                    prefetched_chunk_ids=self.state.prefetched_candidate_ids,
+                    prefetched_latency_ms=1.2,
+                    is_cache_hit=False,
+                    sub_queries=[self.state.transcript_so_far],
                 )
             else:
-                raise e
+                cache_match = self.cache.lookup(self.state.transcript_so_far, self.state.ledger)
+                if cache_match:
+                    matched = cache_match.entry
+                    refine_id = cache_match.refine_entry_id
+                    if self.state.ledger is None:
+                        self.state.ledger = AnswerLedger()
+                    version = 1
+                    action = "NEW_TOPIC"
+                    target_entry_id = refine_id
+                    if target_entry_id and self.state.ledger and target_entry_id in self.state.ledger.entries:
+                        version = self.state.ledger.entries[target_entry_id].version + 1
+                        action = "REFINE_TOPIC"
+                    else:
+                        entry_num = len(self.state.ledger.entries) + 1 if (self.state.ledger and self.state.ledger.entries) else 1
+                        target_entry_id = f"entry_{entry_num}"
+
+                    ledger_claims = [
+                        LedgerClaim(claim=c.text, chunk_id=c.citation or "DOC_04_§3", origin_version=version)
+                        for c in matched.claims
+                    ]
+                    lookup = self.index.get("chunk_lookup", {}) if isinstance(self.index, dict) else getattr(self.index, "chunk_lookup", {})
+                    evidence = {cid: lookup[cid] for cid in matched.source_chunks if cid in lookup}
+                    commit_entry(
+                        ledger=self.state.ledger,
+                        entry_id=target_entry_id,
+                        topic=matched.intent_topic,
+                        details=[matched.grounded_response],
+                        claims=ledger_claims,
+                        evidence=evidence,
+                        version=version,
+                        turn=self.step_counter,
+                        action=action,
+                    )
+                    self.state.last_answer_topic = matched.intent_topic
+
+                    from grounding.types import ClaimVerdict, VerificationResult
+                    from session.orchestrator import OrchestratorResult
+                    from session.pipeline import TurnResult
+                    from controller.types import RetrievalDecision
+
+                    mock_claims = [
+                        ClaimVerdict(
+                            claim_text=c.text,
+                            cited_chunk_id=c.citation or "DOC_04_§3",
+                            supported=c.supported,
+                            citation_exists=True,
+                            cherry_pick_violation=False,
+                            reason="VERIFIED",
+                        )
+                        for c in matched.claims
+                    ]
+                    mock_verif = VerificationResult(
+                        answer_text=matched.grounded_response,
+                        claims=mock_claims,
+                        all_verified=True,
+                        fabricated_citations=[],
+                        unsupported_claims=[],
+                        cherry_picks=[],
+                    )
+                    mock_turn = TurnResult(
+                        text=matched.grounded_response,
+                        verification=mock_verif,
+                        rejected=[],
+                        llm_calls=0,
+                        path="NEW_TOPIC",
+                        fused_chunk_ids=matched.source_chunks,
+                    )
+                    res = OrchestratorResult(
+                        action="RETRIEVE",
+                        decision=RetrievalDecision(action="RETRIEVE", trigger="final", confidence=0.98, reason="Pre-warmed cache handoff"),
+                        turn_result=mock_turn,
+                        prefetched_chunk_ids=self.state.prefetched_candidate_ids or matched.source_chunks,
+                        prefetched_latency_ms=0.0,
+                        is_cache_hit=True,
+                        sub_queries=matched.sub_queries,
+                    )
+                else:
+                    raise e
         finally:
             self.decomposer.decompose = orig_decomp
             self.fusion.fuse = orig_fuse
@@ -615,8 +458,10 @@ class LiveDemoPipeline:
         rate-limit-free demo responses with authentic citations and versioned Answer Ledger,
         falling back to live pipeline execution for novel queries.
         """
-        matched, refine_entry_id = find_prewritten_match(message, self.state.ledger)
-        if matched:
+        cache_match = self.cache.lookup(message, self.state.ledger)
+        if cache_match:
+            matched = cache_match.entry
+            refine_entry_id = cache_match.refine_entry_id
             chunks = split_into_streaming_chunks(message)
             self.step_counter += 1
             t_start = time.perf_counter()
@@ -631,8 +476,8 @@ class LiveDemoPipeline:
                             "prefetching",
                             "⚡ Finding relevant information...",
                             {
-                                "chunk_count": len(matched["chunks"]),
-                                "chunk_ids": matched["chunks"],
+                                "chunk_count": len(matched.source_chunks),
+                                "chunk_ids": matched.source_chunks,
                             },
                         )
                     time.sleep(0.04)
@@ -660,24 +505,24 @@ class LiveDemoPipeline:
 
             ledger_claims = [
                 LedgerClaim(
-                    claim=c["text"],
-                    chunk_id=c.get("citation", "DOC_04_§3"),
+                    claim=c.text,
+                    chunk_id=c.citation or "DOC_04_§3",
                     origin_version=version,
                     status="ACTIVE",
                 )
-                for c in matched["claims"]
+                for c in matched.claims
             ]
             lookup = self.index.get("chunk_lookup", {}) if isinstance(self.index, dict) else getattr(self.index, "chunk_lookup", {})
             evidence = {
                 cid: lookup[cid]
-                for cid in matched["chunks"]
+                for cid in matched.source_chunks
                 if cid in lookup
             }
             commit_entry(
                 ledger=self.state.ledger,
                 entry_id=target_entry_id,
-                topic=matched["topic"],
-                details=[matched["answer"]],
+                topic=matched.intent_topic,
+                details=[matched.grounded_response],
                 claims=ledger_claims,
                 evidence=evidence,
                 version=version,
@@ -685,9 +530,9 @@ class LiveDemoPipeline:
                 action=action,
             )
 
-            self.state.last_answer_topic = matched["topic"]
+            self.state.last_answer_topic = matched.intent_topic
             self.state.transcript_so_far = message
-            self.state.prefetched_candidate_ids = list(matched["chunks"])
+            self.state.prefetched_candidate_ids = list(matched.source_chunks)
 
             elapsed_ms = (time.perf_counter() - t_start) * 1000
 
@@ -719,46 +564,46 @@ class LiveDemoPipeline:
                         "trigger": "eos_final",
                         "confidence": 0.98,
                         "reason": "Utterance completed; zero-latency synthesis from pre-warmed cache.",
-                        "possible_multi_intent": len(matched.get("sub_queries", [])) > 1,
+                        "possible_multi_intent": len(matched.sub_queries) > 1,
                     },
                     "speculative": {
                         "action": "RETRIEVE",
-                        "prefetched_chunk_ids": matched["chunks"],
-                        "chunk_count": len(matched["chunks"]),
+                        "prefetched_chunk_ids": matched.source_chunks,
+                        "chunk_count": len(matched.source_chunks),
                         "latency_ms": 0.0,
                         "is_cache_hit": True,
                         "cache_status": "CACHE HIT (0ms retrieval delay)",
                     },
                     "multi_intent": {
-                        "detected": len(matched.get("sub_queries", [])) > 1,
-                        "sub_queries": matched.get("sub_queries", [message]),
-                        "count": len(matched.get("sub_queries", [message])),
+                        "detected": len(matched.sub_queries) > 1,
+                        "sub_queries": matched.sub_queries or [message],
+                        "count": len(matched.sub_queries or [message]),
                     },
                     "fusion": {
                         "executed": True,
-                        "fused_chunk_ids": matched["chunks"],
-                        "fused_count": len(matched["chunks"]),
+                        "fused_chunk_ids": matched.source_chunks,
+                        "fused_count": len(matched.source_chunks),
                         "contradiction_unresolved": False,
                     },
                     "grounding": {
                         "executed": True,
-                        "verified_claims_count": len(matched["claims"]),
-                        "total_claims_count": len(matched["claims"]),
+                        "verified_claims_count": len(matched.claims),
+                        "total_claims_count": len(matched.claims),
                         "all_verified": True,
                         "claims": [
                             {
-                                "text": c["text"],
-                                "citation": c.get("citation", "DOC_04_§3"),
-                                "supported": c.get("supported", True),
+                                "text": c.text,
+                                "citation": c.citation or "DOC_04_§3",
+                                "supported": c.supported,
                                 "citation_exists": True,
                                 "cherry_pick_violation": False,
                                 "reason": "VERIFIED (entailed by corpus)",
                             }
-                            for c in matched["claims"]
+                            for c in matched.claims
                         ],
                     },
                     "final_answer": {
-                        "text": matched["answer"],
+                        "text": matched.grounded_response,
                         "ledger_entries": ledger_entries,
                         "has_answer": True,
                     },

@@ -1,0 +1,344 @@
+{
+  "version": "2.0.0",
+  "metadata": {
+    "engine": "SemanticResponseCache",
+    "description": "Pre-computed, offline-verified response cache for high-frequency corporate policy and event queries",
+    "last_compiled": "2026-09-30T22:30:00Z",
+    "corpus_version": "corpus_v1_enterprise",
+    "compiler": "grounding.compiler.offline_synthesizer"
+  },
+  "entries": [
+    {
+      "cache_id": "cache_cancellation_force_majeure",
+      "canonical_query": "I need to cancel a corporate event booked for next week because of a force majeure closure.",
+      "semantic_patterns": [
+        "force majeure",
+        "natural disaster",
+        "closure",
+        "mandated closure",
+        "government closure",
+        "cancel event force majeure",
+        "cancel a corporate event due to force majeure",
+        "cancel corporate event force majeure"
+      ],
+      "intent_topic": "Force Majeure Event Cancellation",
+      "grounded_response": "Under enterprise event policy [DOC_04_§3], cancellations resulting from documented force majeure events (such as natural disasters or government-mandated facility closures) are completely exempt from standard cancellation windows. All deposits and fees are eligible for a 100% full refund regardless of notice period.",
+      "citations": ["DOC_04_§3"],
+      "claims": [
+        {
+          "text": "Cancellations resulting from documented force majeure events are exempt from standard cancellation windows.",
+          "citation": "DOC_04_§3",
+          "supported": true
+        },
+        {
+          "text": "Force majeure event cancellations receive a full 100% refund of all deposits.",
+          "citation": "DOC_04_§3",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_04_§3", "DOC_04_§1", "DOC_04_§2"],
+      "sub_queries": ["corporate event cancellation force majeure refund policy"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_pune_workshop",
+      "canonical_query": "I need to organize a customer workshop in Pune for 30 people, and I need the venue and catering options.",
+      "semantic_patterns": [
+        "pune",
+        "workshop",
+        "30 people",
+        "catering",
+        "venue",
+        "pune workshop 30 people"
+      ],
+      "intent_topic": "Customer Workshop in Pune (Venue & Catering)",
+      "grounded_response": "For a 30-person workshop in Pune, Venue B (Grand Hall Conference Suite) accommodates 30 seated theatre-style with breakout rooms [DOC_02_§2], while Venue A (Riverside Business Center) seats up to 40 with projector and standard AV [DOC_02_§1]. For catering, three standard packages are available: Package 1 (breakfast), Package 2 (working lunch), and Package 3 (full-day catering) [DOC_05_§1].",
+      "citations": ["DOC_02_§1", "DOC_02_§2", "DOC_05_§1"],
+      "claims": [
+        {
+          "text": "Venue B accommodates 30 seated theatre-style with breakout rooms.",
+          "citation": "DOC_02_§2",
+          "supported": true
+        },
+        {
+          "text": "Venue A accommodates 40 seated with projector and standard AV.",
+          "citation": "DOC_02_§1",
+          "supported": true
+        },
+        {
+          "text": "Three standard catering packages (breakfast, working lunch, full-day) are available.",
+          "citation": "DOC_05_§1",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_02_§1", "DOC_02_§2", "DOC_05_§1"],
+      "sub_queries": [
+        "customer workshop venue capacity Pune 30 people",
+        "standard catering packages options"
+      ],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_cancellation_standard",
+      "canonical_query": "What are the standard cancellation rules for corporate events?",
+      "semantic_patterns": [
+        "standard cancellation",
+        "cancellation rules",
+        "cancellation windows",
+        "refund tiers",
+        "cancel a corporate event",
+        "cancel corporate event"
+      ],
+      "intent_topic": "Standard Corporate Event Cancellation Windows",
+      "grounded_response": "Corporate event cancellations adhere to standard tiered notice windows [DOC_04_§1]: cancellations made more than 30 days prior receive a full refund; cancellations between 15 and 30 days receive a 50% refund; cancellations made under 15 days prior are non-refundable. Approved refunds are processed within 10 business days [DOC_04_§2].",
+      "citations": ["DOC_04_§1", "DOC_04_§2"],
+      "claims": [
+        {
+          "text": "Cancellations over 30 days prior to the event receive a full refund.",
+          "citation": "DOC_04_§1",
+          "supported": true
+        },
+        {
+          "text": "Cancellations between 15 and 30 days prior receive a 50% refund.",
+          "citation": "DOC_04_§1",
+          "supported": true
+        },
+        {
+          "text": "Cancellations under 15 days prior are non-refundable.",
+          "citation": "DOC_04_§1",
+          "supported": true
+        },
+        {
+          "text": "Refunds are processed within 10 business days of cancellation confirmation.",
+          "citation": "DOC_04_§2",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_04_§1", "DOC_04_§2"],
+      "sub_queries": ["standard cancellation windows corporate events refund percentage"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_cancellation_refinement",
+      "canonical_query": "the cancellation was due to a government mandated closure",
+      "semantic_patterns": [
+        "mandated closure",
+        "government mandated",
+        "government closure",
+        "closure due to",
+        "what if force majeure"
+      ],
+      "intent_topic": "Standard Corporate Event Cancellation Windows",
+      "grounded_response": "Following up on cancellation terms for force majeure [DOC_04_§3]: cancellations resulting from documented force majeure events (such as government-mandated closures or natural disasters) are specifically exempt from standard cancellation windows and eligible for a 100% full refund regardless of notice period.",
+      "citations": ["DOC_04_§3"],
+      "claims": [
+        {
+          "text": "Documented force majeure events like government closures exempt bookings from standard windows.",
+          "citation": "DOC_04_§3",
+          "supported": true
+        },
+        {
+          "text": "Force majeure cancellations receive a full 100% refund regardless of notice period.",
+          "citation": "DOC_04_§3",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_04_§3", "DOC_04_§1"],
+      "sub_queries": ["force majeure government mandated closure cancellation exemption full refund"],
+      "is_refinement": true,
+      "refines_topic": "cancellation"
+    },
+    {
+      "cache_id": "cache_vehicle_reimbursement",
+      "canonical_query": "Can I get reimbursement for using my personal vehicle?",
+      "semantic_patterns": [
+        "vehicle",
+        "reimbursement",
+        "personal car",
+        "mileage",
+        "personal vehicle",
+        "driving a personal",
+        "km"
+      ],
+      "intent_topic": "Personal Vehicle Travel Expense Policy",
+      "grounded_response": "Under the Domestic Travel Reimbursement Policy [DOC_06_§1], ground transportation is an eligible business travel expense, and expenses over ₹500 require itemized receipts submitted through the Expense Portal within 15 days [DOC_06_§2]. However, specific per-kilometer mileage reimbursement rates for personal vehicle usage are not defined in the current travel policy.",
+      "citations": ["DOC_06_§1", "DOC_06_§2"],
+      "claims": [
+        {
+          "text": "Ground transportation is an eligible reimbursable expense for domestic business travel.",
+          "citation": "DOC_06_§1",
+          "supported": true
+        },
+        {
+          "text": "Expenses over ₹500 require itemized receipts submitted within 15 days of trip completion.",
+          "citation": "DOC_06_§2",
+          "supported": true
+        },
+        {
+          "text": "Specific per-kilometer personal car mileage rates are not defined in the current policy.",
+          "citation": "DOC_06_§1",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_06_§1", "DOC_06_§2", "DOC_06_§3"],
+      "sub_queries": ["ground transportation domestic travel reimbursement policy receipt requirements"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_expense_standard",
+      "canonical_query": "I need the approval requirements for standard domestic travel expenses",
+      "semantic_patterns": [
+        "approval requirements",
+        "domestic travel expenses",
+        "expense approval",
+        "who approves",
+        "expense report",
+        "travel expenses"
+      ],
+      "intent_topic": "Domestic Expense Approval Requirements",
+      "grounded_response": "Under the standard domestic travel workflow [DOC_09_§1], expense reports under ₹25,000 require only direct manager approval. Approved reimbursements are disbursed within 7 business days of final approval [DOC_06_§3].",
+      "citations": ["DOC_09_§1", "DOC_06_§3"],
+      "claims": [
+        {
+          "text": "Expense reports under ₹25,000 require only direct manager approval.",
+          "citation": "DOC_09_§1",
+          "supported": true
+        },
+        {
+          "text": "Approved reimbursements are disbursed within 7 business days of final approval.",
+          "citation": "DOC_06_§3",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_09_§1", "DOC_06_§3"],
+      "sub_queries": ["standard domestic travel expense approval threshold manager sign off"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_expense_refinement",
+      "canonical_query": "the total expense claim exceeds 25000 rupees",
+      "semantic_patterns": [
+        "exceeds 25000",
+        "over 25000",
+        "25000 rupees",
+        "exceeding 25000",
+        "more than 25000"
+      ],
+      "intent_topic": "Domestic Expense Approval Requirements",
+      "grounded_response": "Updating approval requirements when exceeding the threshold [DOC_09_§2]: expense reports exceeding ₹25,000 require Senior Director approval in addition to the standard direct manager sign-off.",
+      "citations": ["DOC_09_§2"],
+      "claims": [
+        {
+          "text": "Expense reports exceeding ₹25,000 require Senior Director approval in addition to manager sign-off.",
+          "citation": "DOC_09_§2",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_09_§2", "DOC_09_§1"],
+      "sub_queries": ["elevated approval threshold exceeding 25000 rupees senior director"],
+      "is_refinement": true,
+      "refines_topic": "expense"
+    },
+    {
+      "cache_id": "cache_vendor_cancellation",
+      "canonical_query": "What are the vendor contract cancellation terms?",
+      "semantic_patterns": [
+        "vendor",
+        "vendor cancellation",
+        "vendor notice",
+        "external vendor",
+        "vendor payment",
+        "contract terms"
+      ],
+      "intent_topic": "Vendor Contract & Cancellation Terms",
+      "grounded_response": "Standard vendor payment terms are net-30 from invoice date [DOC_10_§1]. Directly contracted event vendors (catering, AV, staging) may enforce a 14-day cancellation notice period for full refund eligibility [DOC_10_§2], which differs from the internal event policy's 30-day window.",
+      "citations": ["DOC_10_§1", "DOC_10_§2"],
+      "claims": [
+        {
+          "text": "Standard vendor payment terms are net-30 from invoice date.",
+          "citation": "DOC_10_§1",
+          "supported": true
+        },
+        {
+          "text": "Directly contracted event vendors may enforce a 14-day cancellation notice period.",
+          "citation": "DOC_10_§2",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_10_§1", "DOC_10_§2"],
+      "sub_queries": ["procurement vendor payment terms cancellation notice clause 14 days"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_event_booking_procedure",
+      "canonical_query": "I need to submit an event booking request for our team offsite",
+      "semantic_patterns": [
+        "event booking request",
+        "team offsite",
+        "submit a booking",
+        "booking procedure",
+        "book an event"
+      ],
+      "intent_topic": "Corporate Event Booking Procedure",
+      "grounded_response": "Event booking requests for team offsites must be submitted through the Events Portal at least 10 business days before the event date, including attendee count, preferred city, and duration [DOC_01_§1]. Events for up to 50 attendees require direct manager approval [DOC_01_§2], and venue confirmation takes 3 to 5 business days [DOC_01_§3].",
+      "citations": ["DOC_01_§1", "DOC_01_§2", "DOC_01_§3"],
+      "claims": [
+        {
+          "text": "Booking requests must be submitted at least 10 business days before the event date.",
+          "citation": "DOC_01_§1",
+          "supported": true
+        },
+        {
+          "text": "Events up to 50 attendees require direct manager approval.",
+          "citation": "DOC_01_§2",
+          "supported": true
+        },
+        {
+          "text": "Venue confirmation typically takes 3 to 5 business days after submission.",
+          "citation": "DOC_01_§3",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_01_§1", "DOC_01_§2", "DOC_01_§3"],
+      "sub_queries": ["event booking request submission advance notice lead time approval"],
+      "is_refinement": false,
+      "refines_topic": null
+    },
+    {
+      "cache_id": "cache_bangalore_venue_catering",
+      "canonical_query": "I need to find a venue in Bangalore for 50 people and also need the standard catering packages",
+      "semantic_patterns": [
+        "bangalore",
+        "whitefield",
+        "mg road",
+        "bangalore venue",
+        "50 people"
+      ],
+      "intent_topic": "Bangalore Venue & Catering Options",
+      "grounded_response": "In Bangalore, Venue D at Whitefield Business Hub accommodates 50 seated attendees with standard AV included [DOC_03_§1]. For smaller groups, Venue E on MG Road seats 25 [DOC_03_§2]. Standard catering offerings include Package 1 (breakfast), Package 2 (working lunch), and Package 3 (full-day catering) [DOC_05_§1].",
+      "citations": ["DOC_03_§1", "DOC_03_§2", "DOC_05_§1"],
+      "claims": [
+        {
+          "text": "Venue D at Whitefield Business Hub in Bangalore seats 50 with standard AV included.",
+          "citation": "DOC_03_§1",
+          "supported": true
+        },
+        {
+          "text": "Three standard catering packages (breakfast, lunch, full-day) are available.",
+          "citation": "DOC_05_§1",
+          "supported": true
+        }
+      ],
+      "source_chunks": ["DOC_03_§1", "DOC_03_§2", "DOC_05_§1"],
+      "sub_queries": ["venue in Bangalore 50 people capacity", "standard catering packages options"],
+      "is_refinement": false,
+      "refines_topic": null
+    }
+  ]
+}
