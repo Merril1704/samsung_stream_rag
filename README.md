@@ -1,19 +1,24 @@
-# Streaming Live RAG: Speculative Intent Retrieval & Continuous Grounded Synthesis
+[README(1).md](https://github.com/user-attachments/files/32867499/README.1.md)
 
-<div align="center">
+# Streaming Live RAG
 
-[![Samsung PRISM Hackathon](https://img.shields.io/badge/Samsung%20PRISM-GenAI%20Hackathon%202026--27-0c4da2.svg?style=for-the-badge&logo=samsung)](https://www.samsungprism.com/)
-[![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg?style=for-the-badge&logo=python)](https://python.org)
-[![Architecture](https://img.shields.io/badge/Architecture-Streaming%20RAG%20v2.0-8a2be2.svg?style=for-the-badge)](#system-architecture)
-[![Evaluation](https://img.shields.io/badge/Recall%4010-100%25-brightgreen.svg?style=for-the-badge)](#benchmark-evaluation-results)
-[![Hallucination](https://img.shields.io/badge/Fabricated%20Citations-0.0%25-success.svg?style=for-the-badge)](#grounding-and-safety-mechanisms)
+> **Cracked Code — Samsung PRISM Generative AI Hackathon 2026–27**  
+> **Theme 04: Streaming Live RAG**
 
-**Team Cracked Code — Theme 04: Streaming Live RAG**  
-*Enterprise Policy & Corporate Event Assistant with Speculative In-Flight Retrieval and Versioned Answer Ledger*
+## Overview
 
-[Features](#key-capabilities) • [System Architecture](#system-architecture) • [Live Chat Demo](#interactive-demonstration-web-ui) • [Quickstart](#installation--quickstart) • [Evaluation](#benchmark-evaluation-results) • [Team](#team--contributors)
+**Streaming Live RAG** is a retrieval-augmented generation pipeline designed for conversational interactions where the user's intent develops while they are still speaking.
 
-</div>
+Traditional RAG systems typically wait for a complete user query before retrieving evidence. Our system treats an incoming utterance as a **stream of progressively useful information** and begins retrieval as soon as the intent becomes sufficiently stable.
+
+The system is designed around four core capabilities:
+
+1. **Early / speculative retrieval** — retrieve useful evidence before the utterance ends.
+2. **Multi-intent decomposition** — split compound conversational requests into independent retrieval-ready sub-queries.
+3. **Evidence fusion and grounded synthesis** — combine, rerank and verify evidence before producing an answer.
+4. **Session-aware refinement** — incorporate late-arriving details without unnecessarily restarting the conversation.
+
+The result is a RAG pipeline that aims to reduce perceived latency while preserving evidence traceability and answer quality.
 
 ---
 
@@ -22,6 +27,7 @@
 Traditional Retrieval-Augmented Generation (RAG) operates on a synchronous **"wait-then-retrieve"** bottleneck: a system remains idle until the user finishes typing or speaking, incurring a multi-second latency penalty before evidence search, reranking, and generation even begin. Furthermore, traditional pipelines fail when handling multi-intent clauses, contradictory policy documents, or late-arriving conversational refinements.
 
 **Streaming Live RAG** re-architects conversational retrieval into an **in-flight predictive pipeline**. As human speech develops incrementally:
+
 1. **Speculative Pre-fetching**: The intent stability controller monitors partial speech clauses, triggering background dense/sparse retrieval the moment semantic intent stabilizes—**while the user is still speaking**.
 2. **Zero-Latency Handoff**: When speech concludes, the system reuses pre-warmed candidates directly from cache, bypassing search latency entirely (0.0 ms retrieval delay).
 3. **Multi-Intent Decomposition**: Complex conjunctions are partitioned into atomic sub-queries, executed across corpus indices, and fused using Reciprocal Rank Fusion (RRF).
@@ -92,28 +98,35 @@ Traditional Retrieval-Augmented Generation (RAG) operates on a synchronous **"wa
 ## Key Capabilities
 
 ### 1. Speculative In-Flight Retrieval
+
 Rather than waiting for the end-of-speech delimiter, the system measures token stability and semantic completeness. If an utterance like *"I need to plan a customer workshop in Pune for 30 people..."* crosses the stability threshold, speculative retrieval fires in a non-blocking background thread. When the speaker finishes, evidence is already cached in memory.
 
 ### 2. Zero-Latency Cache Handoff
+
 By computing candidates during conversational delivery, final synthesis begins immediately upon speech termination, achieving **0 ms retrieval delay** at turn end.
 
 ### 3. Multi-Intent Decomposition
+
 Real-world queries often bundle disparate requirements. For example:
 > *"I need a venue in Bangalore for 50 people and also need the standard catering packages."*
 
 The decomposer splits this into:
+
 - `Sub-query 1`: Bangalore venue capacity 50 attendees (`DOC_03_§1`)
 - `Sub-query 2`: Standard catering packages (`DOC_05_§1`)
 
 Evidence from each sub-query is retrieved in parallel and fused using rank-aware reciprocal algorithms.
 
 ### 4. Enterprise Answer Ledger & Refinement
+
 When a user follows up with a condition or constraint (e.g. *"the cancellation was due to a government mandated closure"*), the pipeline checks semantic overlap against active ledger entries. Instead of wiping the session or answering blindly:
+
 - The previous entry is marked for refinement.
 - New claims are checked and appended.
 - The entry is incremented ($v1 \to v2$) with full audit provenance.
 
 ### 5. Strict Entailment & Anti-Hallucination Shield
+
 Every generated factual statement is decomposed into an atomic claim and verified against verbatim corpus passages. If a model hallucinates a non-existent document ID or unsupported fact, the verifier intercepts it, ensuring **100% citation validity** and **0% fabricated citations**.
 
 ---
@@ -126,7 +139,8 @@ The project features a **pure conversational chatbot interface** accompanied by 
   <img src="https://via.placeholder.com/1000x500/121826/38bdf8?text=Streaming+Live+RAG+Interactive+Chatbot+Interface" alt="Live Demo Interface" width="100%">
 </div>
 
-### Features of the Web Interface:
+### Features of the Web Interface
+
 - **Natural Multi-Turn Chat**: Single clean input bar with Enter/Send controls, responsive bubbles, and smooth typewriter answer rendering.
 - **Simulated Speech Streaming**: Progressive clause splitting emulates real-time voice transcripts behind the scenes.
 - **In-Flight Status Indicators**: Subtle indicators (`🎙️ Listening...`, `⚡ Finding relevant information...`, `🔄 Updating context...`, `✓ Context ready`).
@@ -141,6 +155,7 @@ The project features a **pure conversational chatbot interface** accompanied by 
 ## Installation & Quickstart
 
 ### Prerequisites
+
 - Python 3.11+
 - Virtual environment (`venv` or `conda`)
 - Groq API Key (or OpenAI / Ollama compatible endpoint)
@@ -190,6 +205,7 @@ python -m demo.server
 ```
 
 Open your browser at:
+
 ```
 http://127.0.0.1:8000
 ```
@@ -217,7 +233,7 @@ pytest tests/ -v
 Evaluated against the held-out evaluation corpus consisting of 10 enterprise policy and directory documents in `corpus/raw/` across 13 complex scenarios (15 multi-turn dialogues):
 
 | Metric | Result | Target Benchmark | Status |
-|:---|:---:|:---:|:---:|
+| :--- | :---: | :---: | :---: |
 | **Raw Retrieval Recall@10** | **100.0%** | > 90.0% | PASS |
 | **Raw Retrieval Recall@5** | **92.3%** | > 85.0% | PASS |
 | **Fused Candidate Recall@10** | **100.0%** | > 95.0% | PASS |
@@ -300,7 +316,7 @@ samsung_stream_rag/
 ### **Team CRACKED CODE**
 
 | Name | Role | Responsibilities |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | **Pallavi Yadav** | System Architecture & Eval | Scenario curation, benchmark metrics, evaluation design |
 | **Merril Baiju** | Core Pipeline & Streaming RAG | Orchestrator, speculative retrieval, controller, web demo |
 | **Abdur Rahuman** | Retrieval & Fusion Engine | BM25 indexing, Reciprocal Rank Fusion, contradiction screening |
