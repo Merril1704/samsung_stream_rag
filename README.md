@@ -1,4 +1,4 @@
-[README(1).md](https://github.com/user-attachments/files/32867499/README.1.md)
+
 # Streaming Live RAG
 
 > **Cracked Code — Samsung PRISM Generative AI Hackathon 2026–27**  
